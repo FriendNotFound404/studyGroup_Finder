@@ -2,17 +2,32 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class StudyGroup extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
-        'name', 'subject', 'level', 'description', 'creator_id', 'max_members'
+        'name',
+        'description',
+        'created_by',
     ];
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
 
     public function members()
     {
-        return $this->hasMany(GroupMember::class, 'group_id');
+        return $this->belongsToMany(
+            User::class,
+            'group_members',
+            'group_id',
+            'user_id'
+        )->withTimestamps();
     }
 
     public function messages()
