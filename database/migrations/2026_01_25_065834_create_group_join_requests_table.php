@@ -6,27 +6,21 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up()
     {
-        Schema::create('group_members', function (Blueprint $table) {
+        Schema::create('group_join_requests', function (Blueprint $table) {
             $table->id();
             $table->foreignId('group_id')->constrained('study_groups')->cascadeOnDelete();
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-            $table->enum('role', ['leader', 'member'])->default('member');
+            $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
             $table->timestamps();
 
             $table->unique(['group_id', 'user_id']);
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
+    public function down()
     {
-        Schema::dropIfExists('group_members');
+        Schema::dropIfExists('group_join_requests');
     }
 };

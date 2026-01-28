@@ -11,13 +11,16 @@ class StudyGroup extends Model
 
     protected $fillable = [
         'name',
+        'subject',
         'description',
-        'created_by',
+        'status',
+        'max_members',
+        'creator_id',
     ];
 
     public function creator()
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(User::class, 'creator_id');
     }
 
     public function members()
@@ -27,7 +30,13 @@ class StudyGroup extends Model
             'group_members',
             'group_id',
             'user_id'
-        )->withTimestamps();
+        )->withPivot('role')
+        ->withTimestamps();
+    }
+
+    public function sessions()
+    {
+        return $this->hasMany(GroupSession::class);
     }
 
     public function messages()
