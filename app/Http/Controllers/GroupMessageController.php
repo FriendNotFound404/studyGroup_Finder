@@ -39,68 +39,46 @@ class GroupMessageController extends Controller
         return response()->json($messages);
     }
 
-    public function store(Request $request, $groupId)
-    {
-        $data = $request->validate([
-        'message' => 'nullable|string',
-        'file' => 'nullable|file|max:10240',
-        ]);
-
-
-        $filePath = null;
-        $fileName = null;
-
-
-        if ($request->hasFile('file')) {
-        $filePath = $request->file('file')->store('group_files', 'public');
-        $fileName = $request->file('file')->getClientOriginalName();
-        }
-
-
-        $message = GroupMessage::create([
-        'group_id' => $groupId,
-        'user_id' => $request->user()->id,
-        'message' => $data['message'],
-        'file_path' => $filePath,
-        'file_name' => $fileName,
-        ]);
-        return response()->json($message, 201);
-    }
-
-    // Send message
     public function send(Request $request, $groupId)
     {
-        $request->validate([
-            'message' => 'required|string|max:2000',
+        $data = $request->validate([
+            'message' => 'nullable|string|max:2000',
+            'file' => 'nullable|file|max:10240',
         ]);
 
         $user = $request->user();
 
-        // validate group
         $group = StudyGroup::findOrFail($groupId);
 
-        // membership check
         if (! $group->members()->where('user_id', $user->id)->exists()) {
             return response()->json([
                 'message' => 'You are not a member of this group'
             ], 403);
         }
 
-        // create message
-        $msg = GroupMessage::create([
-            'group_id' => $groupId,
-            'user_id'  => $user->id,
-            'message'  => $request->message,
+        $filePath = null;
+        $fileName = null;
+
+        if ($request->hasFile('file')) {
+            $filePath = $request->file('file')->store('group_files', 'public');
+            $fileName = $request->file('file')->getClientOriginalName();
+        }
+
+        $message = GroupMessage::create([
+            'group_id'  => $groupId,
+            'user_id'   => $user->id,
+            'message'   => $data['message'],
+            'file_path' => $filePath,
+            'file_name' => $fileName,
         ]);
 
-        // load sender
-        $msg->load('user:id,name,profile_image');
+        $message->load('user:id,name,profile_image');
 
-        broadcast(new GroupMessageSent($msg))->toOthers();
+        broadcast(new GroupMessageSent($message))->toOthers();
 
         return response()->json([
-            'message' => $msg,
-            'success' => true
+            'success' => true,
+            'message' => $message
         ], 201);
     }
     
@@ -136,16 +114,21 @@ class GroupMessageController extends Controller
         
         return response()->json($msg);
     }
-    public function pinnedmessage($request, $messageId)
+    public function pinMessage(Request $request, $messageId)
     {
-        $message = GroupMessage::findOrFail($messageId);
+        $message = GroupMessage::with('group')->findOrFail($messageId);
         $user = $request->user();
 
         abort_unless(
-            $message->group->owner_id === $user()->id,
-            403
+            $message->group->owner_id === $user->id,
+            403,
+            'Only the group leader can pin messages'
         );
-        $message->update(['is_pinned' => true]);
+
+        $message->update([
+            'is_pinned' => true
+        ]);
+
         return response()->json(['success' => true]);
     }
     
