@@ -34,7 +34,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // group messages
     Route::get('/groups/{groupId}/messages', [GroupMessageController::class, 'index']);
+    Route::patch('/groups/{groupId}/messages/{messageId}',[GroupMessageController::class, 'update']);
     Route::post('/groups/{groupId}/messages', [GroupMessageController::class, 'send']);
+    Route::post('/groups/messages/{id}/pin',[GroupMessageController::class, 'pinnedmessage']);
+    Route::delete('/groups/{groupId}/messages/{messageId}',[GroupMessageController::class, 'destroy']);
 });
-
 

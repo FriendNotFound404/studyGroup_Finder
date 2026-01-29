@@ -17,7 +17,9 @@ return new class extends Migration
         $table->unsignedBigInteger('user_id');
         $table->text('message');
         $table->timestamps();
-
+        $table->string('file_path')->nullable();
+        $table->string('file_name')->nullable();
+        $table->boolean('is_pinned')->default(false);
         $table->foreign('group_id')->references('id')->on('study_groups')->cascadeOnDelete();
         $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();
     });

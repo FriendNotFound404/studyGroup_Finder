@@ -6,6 +6,7 @@ use App\Models\GroupMessage;
 use App\Models\StudyGroup;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Events\GroupMessageSent;
 
 class GroupMessageController extends Controller
 {
@@ -21,7 +22,6 @@ class GroupMessageController extends Controller
             ], 404);
         }
         
-        // Check if user is a member of the group (optional security)
         if (!$group->members()->where('user_id', Auth::id())->exists()) {
             return response()->json([
                 'message' => 'You are not a member of this group'
@@ -39,42 +39,65 @@ class GroupMessageController extends Controller
         return response()->json($messages);
     }
 
+    public function store(Request $request, $groupId)
+    {
+        $data = $request->validate([
+        'message' => 'nullable|string',
+        'file' => 'nullable|file|max:10240',
+        ]);
+
+
+        $filePath = null;
+        $fileName = null;
+
+
+        if ($request->hasFile('file')) {
+        $filePath = $request->file('file')->store('group_files', 'public');
+        $fileName = $request->file('file')->getClientOriginalName();
+        }
+
+
+        $message = GroupMessage::create([
+        'group_id' => $groupId,
+        'user_id' => $request->user()->id,
+        'message' => $data['message'],
+        'file_path' => $filePath,
+        'file_name' => $fileName,
+        ]);
+        return response()->json($message, 201);
+    }
+
     // Send message
     public function send(Request $request, $groupId)
     {
         $request->validate([
             'message' => 'required|string|max:2000',
         ]);
-        
-        // Validate group exists and user is a member
-        $group = StudyGroup::find($groupId);
-        
-        if (!$group) {
-            return response()->json([
-                'message' => 'Group not found'
-            ], 404);
-        }
-        
-        // Check if user is a member
-        if (!$group->members()->where('user_id', Auth::id())->exists()) {
+
+        $user = $request->user();
+
+        // validate group
+        $group = StudyGroup::findOrFail($groupId);
+
+        // membership check
+        if (! $group->members()->where('user_id', $user->id)->exists()) {
             return response()->json([
                 'message' => 'You are not a member of this group'
             ], 403);
         }
-        
-        // Create message
+
+        // create message
         $msg = GroupMessage::create([
             'group_id' => $groupId,
-            'user_id' => Auth::id(),
-            'message' => $request->message,
+            'user_id'  => $user->id,
+            'message'  => $request->message,
         ]);
-        
-        // Load relationships for response
-        $msg->load('user:id,name');
-        
-        // Real-time broadcasting (optional - for WebSocket)
-        // broadcast(new NewMessageEvent($msg))->toOthers();
-        
+
+        // load sender
+        $msg->load('user:id,name,profile_image');
+
+        broadcast(new GroupMessageSent($msg))->toOthers();
+
         return response()->json([
             'message' => $msg,
             'success' => true
@@ -112,6 +135,18 @@ class GroupMessageController extends Controller
         ]);
         
         return response()->json($msg);
+    }
+    public function pinnedmessage($request, $messageId)
+    {
+        $message = GroupMessage::findOrFail($messageId);
+        $user = $request->user();
+
+        abort_unless(
+            $message->group->owner_id === $user()->id,
+            403
+        );
+        $message->update(['is_pinned' => true]);
+        return response()->json(['success' => true]);
     }
     
     // Optional: Delete message
